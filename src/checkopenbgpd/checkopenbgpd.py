@@ -118,7 +118,7 @@ def parse_args():  # pragma: no cover
 def main():  # pragma: no cover
 
     args = parse_args()
-    check = nagiosplugin.Check(CheckBgpCtl(args.idle_list,args.socket),
+    check = nagiosplugin.Check(CheckBgpCtl(args.idle_list, args.socket),
                                nagiosplugin.ScalarContext('bgpctl', None,
                                                           '0:'),
                                AuditSummary())
