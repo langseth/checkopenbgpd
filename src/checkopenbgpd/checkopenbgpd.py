@@ -17,6 +17,8 @@ __docformat__ = 'restructuredtext en'
 
 _log = logging.getLogger('nagiosplugin')
 
+default_socket = '/var/run/bgpd.sock'
+
 fields = ('Neighbor', 'AS', 'MsgRcvd', 'MsgSent', 'OutQ', 'Up_Down',
           'State_PrfRcvd')
 
@@ -45,10 +47,10 @@ class CheckBgpCtl(nagiosplugin.Resource):
     """Check bgpctl sessions plugin."""
 
     hostname = platform.node()
-    cmd = 'bgpctl show'
 
-    def __init__(self, idle_list):
+    def __init__(self, idle_list, socket_path):
         self.idle_list = idle_list
+        self.cmd = 'bgpctl -s %s show' % socket_path
 
     def _get_sessions(self):
         """Runs 'bgpctl show'."""
@@ -107,7 +109,8 @@ def parse_args():  # pragma: no cover
     argp.add_argument('-v', '--verbose', action='count', default=0,
                       help='increase output verbosity (use up to 3 times)')
     argp.add_argument('--idle-list', nargs='*')
-
+    argp.add_argument('--socket', '-s', action='store', default=default_socket,
+                      help="path to openbgpd socket (default: %(default)s)")
     return argp.parse_args()
 
 
@@ -115,7 +118,7 @@ def parse_args():  # pragma: no cover
 def main():  # pragma: no cover
 
     args = parse_args()
-    check = nagiosplugin.Check(CheckBgpCtl(args.idle_list),
+    check = nagiosplugin.Check(CheckBgpCtl(args.idle_list,args.socket),
                                nagiosplugin.ScalarContext('bgpctl', None,
                                                           '0:'),
                                AuditSummary())
