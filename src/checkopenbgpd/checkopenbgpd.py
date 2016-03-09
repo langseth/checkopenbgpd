@@ -82,7 +82,7 @@ class CheckBgpCtl(nagiosplugin.Resource):
                 if session.Neighbor in self.idle_list:
                     result = 0
 
-        return result
+        return state
 
     def probe(self):
         """."""
@@ -92,6 +92,18 @@ class CheckBgpCtl(nagiosplugin.Resource):
                 yield nagiosplugin.Metric(session.Neighbor,
                                           self.check_session(session),
                                           min=0, context='bgpctl')
+
+
+class BgpStatus(nagiosplugin.Context):
+    """Context check of the BGP session"""
+
+    def evaluate(self, metric, resource):
+        if metric.value.isdigit():
+            return self.result_cls(nagiosplugin.state.Ok,
+                "BGP session in correct state", metric)
+        else:
+            return self.result_cls(nagiosplugin.state.Critical,
+                "BGP session in state %s" % metric.value, metric)
 
 
 class AuditSummary(nagiosplugin.Summary):
@@ -119,8 +131,7 @@ def main():  # pragma: no cover
 
     args = parse_args()
     check = nagiosplugin.Check(CheckBgpCtl(args.idle_list, args.socket),
-                               nagiosplugin.ScalarContext('bgpctl', None,
-                                                          '0:'),
+                               BgpStatus('bgpctl', None),
                                AuditSummary())
     check.main(args.verbose)
 
