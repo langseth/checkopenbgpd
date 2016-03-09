@@ -100,10 +100,10 @@ class BgpStatus(nagiosplugin.Context):
     def evaluate(self, metric, resource):
         if metric.value.isdigit():
             return self.result_cls(nagiosplugin.state.Ok,
-                "BGP session in correct state", metric)
+                "%s=%s" % (metric.name, metric.value), metric)
         else:
             return self.result_cls(nagiosplugin.state.Critical,
-                "BGP session in state %s" % metric.value, metric)
+                "%s=%s" % (metric.name, metric.value), metric)
 
 
 class AuditSummary(nagiosplugin.Summary):
@@ -112,7 +112,21 @@ class AuditSummary(nagiosplugin.Summary):
 
     def ok(self, results):
         """Summarize OK(s)."""
-        return 'All bgp sessions in correct state'
+
+        result_stats = ' '
+        for result in results:
+            result_stats = " %s%s" % (result, result_stats)
+
+        return "bgp sessions in correct state (%s)" % (result_stats,)
+
+    def problem(self, results):
+        """ Summarize Problem(s)."""
+
+        result_stats = ' '
+        for result in results.most_significant:
+            result_stats = " %s%s" % (result, result_stats)
+
+        return "Sessions not Established: %s" % (result_stats,)
 
 
 def parse_args():  # pragma: no cover
@@ -134,5 +148,8 @@ def main():  # pragma: no cover
                                BgpStatus('bgpctl', None),
                                AuditSummary())
     check.main(args.verbose)
+
+if __name__ == '__main__':
+    main()
 
 # vim:set et sts=4 ts=4 tw=80:
