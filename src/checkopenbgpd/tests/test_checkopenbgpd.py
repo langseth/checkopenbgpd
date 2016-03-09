@@ -15,7 +15,6 @@ from checkopenbgpd import checkopenbgpd
 no_sudoer = 'bgpctl: connect: /var/run/bgpd.sock: Permission denied'
 no_bgpd = 'bgpctl: connect: /var/run/bgpd.sock: No such file or directory'
 
-default_socket = '/var/run/bgpd.sock'
 
 bgpctl_sh = 'Neighbor     AS MsgRcvd MsgSent OutQ Up/Down   State/PrfRcvd\n'\
             'FIRST     65001   75386       6     0 5d02h04m Idlei\n'\
@@ -26,7 +25,7 @@ bgpctl_sh = 'Neighbor     AS MsgRcvd MsgSent OutQ Up/Down   State/PrfRcvd\n'\
 class Test_checkopenbgpd(unittest.TestCase):
 
     def test_bgpd_is_not_running(self):
-        check = checkopenbgpd.CheckBgpCtl(None, default_socket)
+        check = checkopenbgpd.CheckBgpCtl(None)
         err_message = no_bgpd
 
         with mock.patch("checkopenbgpd.checkopenbgpd._popen") as _popen:
@@ -35,7 +34,7 @@ class Test_checkopenbgpd(unittest.TestCase):
                 check._get_sessions()  # NOQA
 
     def test_user_is_not_sudoer(self):
-        check = checkopenbgpd.CheckBgpCtl(None, default_socket)
+        check = checkopenbgpd.CheckBgpCtl(None)
         err_message = no_sudoer
 
         with mock.patch("checkopenbgpd.checkopenbgpd._popen") as _popen:
@@ -44,7 +43,7 @@ class Test_checkopenbgpd(unittest.TestCase):
                 check._get_sessions()  # NOQA
 
     def test__get_sessions(self):
-        check = checkopenbgpd.CheckBgpCtl(None, default_socket)
+        check = checkopenbgpd.CheckBgpCtl(None)
         output = bgpctl_sh
 
         with mock.patch("checkopenbgpd.checkopenbgpd._popen") as _popen:
@@ -54,7 +53,7 @@ class Test_checkopenbgpd(unittest.TestCase):
             self.assertEquals(type(sessions[0]), checkopenbgpd.Session)
 
     def test_check_session_is_up(self):
-        check = checkopenbgpd.CheckBgpCtl(None, default_socket)
+        check = checkopenbgpd.CheckBgpCtl(None)
         output = bgpctl_sh
 
         with mock.patch("checkopenbgpd.checkopenbgpd._popen") as _popen:
@@ -64,7 +63,7 @@ class Test_checkopenbgpd(unittest.TestCase):
             self.assertEquals(result, 529001)
 
     def test_check_idle_session_in_idle_list(self):
-        check = checkopenbgpd.CheckBgpCtl(['THIRD'], default_socket)
+        check = checkopenbgpd.CheckBgpCtl(['THIRD'])
         output = bgpctl_sh
 
         with mock.patch("checkopenbgpd.checkopenbgpd._popen") as _popen:
@@ -74,7 +73,7 @@ class Test_checkopenbgpd(unittest.TestCase):
             self.assertEquals(result, 0)
 
     def test_check_idle_session_not_in_idle_list(self):
-        check = checkopenbgpd.CheckBgpCtl(['THIRD'], default_socket)
+        check = checkopenbgpd.CheckBgpCtl(['THIRD'])
         output = bgpctl_sh
 
         with mock.patch("checkopenbgpd.checkopenbgpd._popen") as _popen:
@@ -84,7 +83,7 @@ class Test_checkopenbgpd(unittest.TestCase):
             self.assertEquals(result, 'U')
 
     def test_check_probe_without_idle_list(self):
-        check = checkopenbgpd.CheckBgpCtl(None, default_socket)
+        check = checkopenbgpd.CheckBgpCtl(None)
         output = bgpctl_sh
 
         with mock.patch("checkopenbgpd.checkopenbgpd._popen") as _popen:
@@ -100,7 +99,7 @@ class Test_checkopenbgpd(unittest.TestCase):
             self.assertEquals(third.value, 'U')
 
     def test_check_probe_with_idle_list(self):
-        check = checkopenbgpd.CheckBgpCtl(['THIRD'], default_socket)
+        check = checkopenbgpd.CheckBgpCtl(['THIRD'])
         output = bgpctl_sh
 
         with mock.patch("checkopenbgpd.checkopenbgpd._popen") as _popen:

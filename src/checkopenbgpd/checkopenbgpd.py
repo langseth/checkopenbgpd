@@ -48,7 +48,7 @@ class CheckBgpCtl(nagiosplugin.Resource):
 
     hostname = platform.node()
 
-    def __init__(self, idle_list, socket_path):
+    def __init__(self, idle_list, socket_path=default_socket):
         self.idle_list = idle_list
         self.cmd = 'bgpctl -s %s show' % socket_path
 
