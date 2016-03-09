@@ -48,8 +48,9 @@ class CheckBgpCtl(nagiosplugin.Resource):
 
     hostname = platform.node()
 
-    def __init__(self, idle_list, socket_path=default_socket):
+    def __init__(self, idle_list, ignore_list, socket_path=default_socket):
         self.idle_list = idle_list
+        self.ignore_list = ignore_list
         self.cmd = 'bgpctl -s %s show' % socket_path
 
     def _get_sessions(self):
@@ -77,6 +78,7 @@ class CheckBgpCtl(nagiosplugin.Resource):
         if state.isdigit():
             result = int(state)
 
+        #XXX: does not work as expected with the new Context
         if state == 'Idle':
             if self.idle_list is not None:
                 if session.Neighbor in self.idle_list:
@@ -89,7 +91,8 @@ class CheckBgpCtl(nagiosplugin.Resource):
         self.sessions = self._get_sessions()
         if self.sessions:
             for session in self.sessions:
-                yield nagiosplugin.Metric(session.Neighbor,
+                if session.Neighbor not in self.ignore_list:
+                    yield nagiosplugin.Metric(session.Neighbor,
                                           self.check_session(session),
                                           min=0, context='bgpctl')
 
@@ -99,6 +102,7 @@ class BgpStatus(nagiosplugin.Context):
 
     def evaluate(self, metric, resource):
         if metric.value.isdigit():
+            
             return self.result_cls(nagiosplugin.state.Ok,
                 "%s=%s" % (metric.name, metric.value), metric)
         else:
@@ -134,7 +138,8 @@ def parse_args():  # pragma: no cover
     argp = argparse.ArgumentParser(description=__doc__)
     argp.add_argument('-v', '--verbose', action='count', default=0,
                       help='increase output verbosity (use up to 3 times)')
-    argp.add_argument('--idle-list', nargs='*')
+    argp.add_argument('--idle-list', nargs='*', )
+    argp.add_argument('--ignore-list', nargs='*', )
     argp.add_argument('--socket', '-s', action='store', default=default_socket,
                       help="path to openbgpd socket (default: %(default)s)")
     return argp.parse_args()
@@ -144,7 +149,7 @@ def parse_args():  # pragma: no cover
 def main():  # pragma: no cover
 
     args = parse_args()
-    check = nagiosplugin.Check(CheckBgpCtl(args.idle_list, args.socket),
+    check = nagiosplugin.Check(CheckBgpCtl(args.idle_list, args.ignore_list, args.socket),
                                BgpStatus('bgpctl', None),
                                AuditSummary())
     check.main(args.verbose)
