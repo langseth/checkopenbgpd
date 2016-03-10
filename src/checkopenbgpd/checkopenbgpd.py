@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2.7
 # -*- coding: utf-8 -*-
 
 """Doc here.
@@ -160,9 +160,9 @@ def parse_args():  # pragma: no cover
     argp.add_argument('--ignore-list', default="asdf_really_bad_hack",nargs='*', )
     argp.add_argument('--socket', '-s', action='store', default=default_socket,
                       help="path to openbgpd socket (default: %(default)s)")
-    argp.add_argument('--warning', '-w', type=int,
+    argp.add_argument('--warning', '-w', type=int, default=0,
                       help="warning level for prefix received")
-    argp.add_argument('--critical', '-c', type=int,
+    argp.add_argument('--critical', '-c', type=int, default=0,
                       help="critical level for prefix received")
     return argp.parse_args()
 
