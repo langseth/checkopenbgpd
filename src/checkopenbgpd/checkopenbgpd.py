@@ -100,10 +100,28 @@ class CheckBgpCtl(nagiosplugin.Resource):
 class BgpStatus(nagiosplugin.Context):
     """Context check of the BGP session"""
 
+    def __init__(self, name, warning, critical, fmt_metric=None,
+                    result_cls=nagiosplugin.Result):
+        self.warning = int(warning)
+        self.critical = int(critical)
+        self.name = name
+        self.result_cls = result_cls
+        self.fmt_metric = fmt_metric
+
+
     def evaluate(self, metric, resource):
         if metric.value.isdigit():
-            
-            return self.result_cls(nagiosplugin.state.Ok,
+            #XXX: All of this could/should be done with a ScalarContext
+            state = nagiosplugin.state.Unknown
+            value = int(metric.value)
+            if value < self.warning:
+                state = nagiosplugin.state.Warn
+            elif value < self.critical:
+                state = nagiosplugin.state.Critical
+            elif value >= self.warning:
+                state = nagiosplugin.state.Ok
+
+            return self.result_cls(state,
                 "%s=%s" % (metric.name, metric.value), metric)
         else:
             return self.result_cls(nagiosplugin.state.Critical,
@@ -130,7 +148,7 @@ class AuditSummary(nagiosplugin.Summary):
         for result in results.most_significant:
             result_stats = " %s%s" % (result, result_stats)
 
-        return "Sessions not Established: %s" % (result_stats,)
+        return "Session in error: %s" % (result_stats,)
 
 
 def parse_args():  # pragma: no cover
@@ -139,9 +157,13 @@ def parse_args():  # pragma: no cover
     argp.add_argument('-v', '--verbose', action='count', default=0,
                       help='increase output verbosity (use up to 3 times)')
     argp.add_argument('--idle-list', nargs='*', )
-    argp.add_argument('--ignore-list', nargs='*', )
+    argp.add_argument('--ignore-list', default="asdf_really_bad_hack",nargs='*', )
     argp.add_argument('--socket', '-s', action='store', default=default_socket,
                       help="path to openbgpd socket (default: %(default)s)")
+    argp.add_argument('--warning', '-w', type=int,
+                      help="warning level for prefix received")
+    argp.add_argument('--critical', '-c', type=int,
+                      help="critical level for prefix received")
     return argp.parse_args()
 
 
@@ -150,7 +172,7 @@ def main():  # pragma: no cover
 
     args = parse_args()
     check = nagiosplugin.Check(CheckBgpCtl(args.idle_list, args.ignore_list, args.socket),
-                               BgpStatus('bgpctl', None),
+                               BgpStatus('bgpctl', args.warning, args.critical),
                                AuditSummary())
     check.main(args.verbose)
 
