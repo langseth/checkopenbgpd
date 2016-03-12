@@ -72,7 +72,6 @@ class CheckBgpCtl(nagiosplugin.Resource):
 
     def check_session(self, session):
         """check session is up, or not in idle list if idle."""
-        result = 'U'
         state = session.State_PrfRcvd
 
         if state.isdigit():
@@ -96,8 +95,21 @@ class BgpStatus(nagiosplugin.Context):
 
     def __init__(self, name, warning, critical, idle_list, fmt_metric=None,
                     result_cls=nagiosplugin.Result):
-        self.warning = int(warning)
-        self.critical = int(critical)
+        if critical > 0:
+            self.critical = int(critical)
+            critical_range = "~:%s" % (self.critical,)
+            self.critical_range = nagiosplugin.Range(critical_range)
+        else:
+            self.critical = 0
+            self.critical_range = None
+        if warning > critical:
+            self.warning = int(warning)
+            warning_range = "%s:%s" % (self.critical, self.warning)
+            self.warning_range = nagiosplugin.Range(warning_range)
+        else:
+            self.warning = 0
+            self.warning_range = None
+
         self.idle_list = idle_list
         self.name = name
         self.result_cls = result_cls
@@ -106,24 +118,31 @@ class BgpStatus(nagiosplugin.Context):
 
     def evaluate(self, metric, resource):
         state = nagiosplugin.state.Unknown
+        hint = "%s is %s, should be Established;" % (metric.name, metric.value)
         if metric.value.isdigit():
             #XXX: All of this could/should be done with a ScalarContext
             value = int(metric.value)
-            if value < self.warning:
-                state = nagiosplugin.state.Warn
-            elif value < self.critical:
+            if self.critical_range is not None and self.critical_range.match(value):
                 state = nagiosplugin.state.Critical
-            elif value >= self.warning:
+                hint = "%s: prfx_rcvd %d of %d target;" % (metric.name, value,
+                        self.critical)
+            elif self.warning_range is not None and self.warning_range.match(value):
+                state = nagiosplugin.state.Warn
+                hint = "%s: prfx_rcvd %d of %d target;" % (metric.name, value,
+                        self.warning)
+            else:
                 state = nagiosplugin.state.Ok
+                hint = "%s=%s pfrx_rcvd;" % (metric.name, metric.value)
+
         else:
             state = nagiosplugin.state.Critical
             if metric.value == 'Idle':
                 if self.idle_list is not None:
                     if metric.name in self.idle_list:
                         state = nagiosplugin.state.Ok
+                        hint = "%s in idle_list" % (metric.name,)
 
-        return self.result_cls(state,
-                "%s=%s" % (metric.name, metric.value), metric)
+        return self.result_cls(state, hint, metric)
 
 
 class AuditSummary(nagiosplugin.Summary):
@@ -137,16 +156,18 @@ class AuditSummary(nagiosplugin.Summary):
         for result in results:
             result_stats = " %s%s" % (result, result_stats)
 
-        return "bgp sessions in correct state (%s)" % (result_stats,)
+        return "BGP session(s) in correct state (%s)" % (result_stats,)
 
     def problem(self, results):
         """ Summarize Problem(s)."""
 
         result_stats = ' '
-        for result in results.most_significant:
-            result_stats = " %s%s" % (result, result_stats)
+#        for result in results.most_significant:
+        for result in results:
+            if result.state is not nagiosplugin.state.Ok:
+                result_stats = " %s%s" % (result, result_stats)
 
-        return "Session in error: %s" % (result_stats,)
+        return "%d Session(s): %s" % (len(results.most_significant), result_stats,)
 
 
 def parse_args():  # pragma: no cover
@@ -160,7 +181,7 @@ def parse_args():  # pragma: no cover
                       help="path to openbgpd socket (default: %(default)s)")
     argp.add_argument('--warning', '-w', type=int, default=0,
                       help="warning level for prefix received")
-    argp.add_argument('--critical', '-c', type=int, default=0,
+    argp.add_argument('--critical', '-c', type=int, default=None,
                       help="critical level for prefix received")
     return argp.parse_args()
 
